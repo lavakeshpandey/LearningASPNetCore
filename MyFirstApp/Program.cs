@@ -66,5 +66,3 @@ class IdValidationFilter: IEndpointFilter
         return await next(context);
     }
 }
-
-// This code is a simple web API application using ASP.NET Core.
