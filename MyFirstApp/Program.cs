@@ -22,7 +22,7 @@ app.MapGet("/fruit/{id}", (string id) =>
      _fruit.TryGetValue(id, out var fruit)
          ? TypedResults.Ok(fruit)
          : Results.Problem(statusCode: 404))
-         .AddEndpointFilterFactory(ValidationHelper.ValidateIdFactory);
+         .AddEndpointFilter<IdValidationFilter>();
 
 app.MapPost("/fruit/{id}", (string id, Fruit fruit) =>
     _fruit.TryAdd(id, fruit)
@@ -30,7 +30,7 @@ app.MapPost("/fruit/{id}", (string id, Fruit fruit) =>
         : Results.ValidationProblem(new Dictionary<string, string[]>
         {
             { "id", new[] { "Fruit with this ID already exists." } }
-        })).AddEndpointFilterFactory(ValidationHelper.ValidateIdFactory);
+        })).AddEndpointFilter<IdValidationFilter>();
 
 app.MapPut("/fruit/{id}", (string id, Fruit fruit) =>
 {
@@ -51,41 +51,20 @@ record Fruit(string Name, int Stock)
     public static readonly Dictionary<string, Fruit> All = new();
 };
 
-class ValidationHelper
+class IdValidationFilter: IEndpointFilter
 {
-    internal static EndpointFilterDelegate ValidateIdFactory(
-        EndpointFilterFactoryContext context,
-        EndpointFilterDelegate next)
+    public async ValueTask<object?> InvokeAsync(EndpointFilterInvocationContext context, EndpointFilterDelegate next)
     {
-        ParameterInfo[] parameters = context.MethodInfo.GetParameters();
-        int? idPosition = null;
-
-        for (int i = 0; i < parameters.Length; i++)
+        var id = context.GetArgument<string>(0);
+        if (string.IsNullOrWhiteSpace(id) || !id.StartsWith('f'))
         {
-            if (parameters[i].Name == "id" && parameters[i].ParameterType == typeof(string))
+            return Results.ValidationProblem(new Dictionary<string, string[]>
             {
-                idPosition = i;
-                break;
-            }
-
+                { "id", new[] { "Invalid format, ID must start with 'f' " } }
+            });
         }
-        if (!idPosition.HasValue)
-        {
-            return next;
-        }
-
-        return async (invocationContext) =>
-        {
-            var id = invocationContext.GetArgument<string>(idPosition.Value);
-            if (string.IsNullOrEmpty(id) || !id.StartsWith("f"))
-            {
-                return Results.ValidationProblem(new Dictionary<string, string[]>
-                {
-                                { "id", new[] { "ID must start with 'f' and cannot be empty." } }
-                });
-            }
-            return await next(invocationContext);
-        };
-
+        return await next(context);
     }
 }
+
+// This code is a simple web API application using ASP.NET Core.
